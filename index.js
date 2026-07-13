@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer');
 
-// The script now waits for the UI/Backend to hand it these two variables
 const targetUrl = process.env.CHAT_URL;
 const targetMessage = process.env.CHAT_MESSAGE;
 
@@ -17,7 +16,17 @@ async function sendSpecificMessage() {
     const page = await browser.newPage();
 
     try {
-        const cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
+        let cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
+        
+        // --- NEW FIX: Sanitize cookies to prevent Puppeteer crash ---
+        cookies = cookies.map(cookie => {
+            if (cookie.sameSite && !['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
+                delete cookie.sameSite; 
+            }
+            return cookie;
+        });
+        // -----------------------------------------------------------
+
         await page.setCookie(...cookies);
 
         console.log(`Navigating to: ${targetUrl}`);
