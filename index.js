@@ -70,14 +70,7 @@ async function sendSpecificMessage() {
         // 2. Wait 1 second for the cursor to actually start blinking
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log("Uploading debug screenshot...");
-        const screenshotBuffer = await page.screenshot();
-        const response = await fetch('https://transfer.sh/debug.png', {
-            method: 'PUT',
-            body: screenshotBuffer
-        });
-        const screenshotUrl = await response.text();
-        console.log(`👀 LOOK AT THIS URL: ${screenshotUrl}`);
+        await page.screenshot({ path: 'debug.png', fullPage: true });
 
         console.log("Typing message...");
         const lines = targetMessage.split('\n');
