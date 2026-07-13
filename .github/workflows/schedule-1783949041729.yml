@@ -24,6 +24,9 @@ jobs:
       - name: Execute Script
         env:
           FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
+          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
+          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
           CHAT_URL: 'https://www.facebook.com/messages/t/868907569173985/'
           CHAT_MESSAGE: |
             ${{ github.event.inputs.dynamic_message }}
@@ -31,3 +34,10 @@ jobs:
             ${{ github.event.inputs.reminder_tasks }}
           FB_E2EE_PIN: ${{ secrets.FB_E2EE_PIN }}
         run: node index.js
+      - name: Upload Debug Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshot
+          path: debug.png
+          retention-days: 1
