@@ -1,0 +1,42 @@
+name: "Messenger Reply Checker"
+
+on:
+  workflow_dispatch:
+    inputs:
+      reference_code:
+        description: 'The semantic code to look for in replies (e.g., DFCCI-S-LU-071926)'
+        required: true
+        default: ''
+      chats_to_check:
+        description: 'JSON array of objects containing url and role to scrape'
+        required: true
+        default: '[]'
+
+jobs:
+  read-replies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Execute Reader Script
+        env:
+          FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
+          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
+          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
+          FB_E2EE_PIN: ${{ secrets.FB_E2EE_PIN }}
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          REFERENCE_CODE: ${{ github.event.inputs.reference_code }}
+          CHATS_TO_CHECK: |
+            ${{ github.event.inputs.chats_to_check }}
+        run: node reader.js
+      - name: Upload Debug Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshot-reader
+          path: debug*.png
+          retention-days: 1
