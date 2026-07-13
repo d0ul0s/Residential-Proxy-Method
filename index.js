@@ -39,6 +39,24 @@ async function sendSpecificMessage() {
 
         console.log(`Navigating to: ${targetUrl}`);
         await page.goto(targetUrl, { waitUntil: 'networkidle2' });
+        
+        // --- NEW FIX: Close the E2EE PIN Pop-up ---
+        console.log("Checking for E2EE PIN pop-up...");
+        try {
+            // Wait up to 5 seconds to see if the "Close" button appears
+            const closeButton = await page.waitForSelector('div[aria-label="Close"][role="button"]', { timeout: 5000 });
+            if (closeButton) {
+                console.log("PIN pop-up detected! Clicking the X button to dismiss it...");
+                await closeButton.click();
+                // Give the pop-up a second to animate away
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+        } catch (e) {
+            console.log("No pop-up detected. Proceeding...");
+        }
+        // ------------------------------------------
+
+            
 
         // 4. Debug Check: Did Facebook log us out?
         const currentUrl = page.url();
@@ -70,8 +88,6 @@ async function sendSpecificMessage() {
         // 2. Wait 1 second for the cursor to actually start blinking
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        await page.screenshot({ path: 'debug.png', fullPage: true });
-
         console.log("Typing message...");
         const lines = targetMessage.split('\n');
         for (let i = 0; i < lines.length; i++) {
@@ -96,6 +112,7 @@ async function sendSpecificMessage() {
         
         console.log("Waiting for network dispatch...");
         await new Promise(resolve => setTimeout(resolve, 5000));
+        await page.screenshot({ path: 'debug.png', fullPage: true });
         console.log(`Successfully sent message to group!`);
 
     } catch (error) {
