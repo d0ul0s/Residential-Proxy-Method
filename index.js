@@ -50,11 +50,16 @@ async function sendSpecificMessage() {
         console.log("Waiting for the chat box to appear...");
         await page.waitForSelector(messageBoxSelector, { timeout: 20000 });
         
-        console.log("Typing message...");
+                console.log("Typing message...");
         await page.type(messageBoxSelector, targetMessage, { delay: 50 });
         
         console.log("Sending...");
         await page.keyboard.press('Enter');
+        
+        // --- NEW FIX: Wait 5 seconds to let the network request finish! ---
+        console.log("Waiting for network dispatch...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        // ------------------------------------------------------------------
         
         console.log(`Successfully sent: "${targetMessage}"`);
 
