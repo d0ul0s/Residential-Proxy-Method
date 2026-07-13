@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 
 const targetUrl = process.env.CHAT_URL;
 const targetMessage = process.env.CHAT_MESSAGE;
+const codeMessage = process.env.CHAT_CODE_MESSAGE;
 const e2eePin = process.env.FB_E2EE_PIN;
 const reminderTasksRaw = process.env.REMINDER_TASKS || '[]';
 let reminderTasks = [];
@@ -83,9 +84,27 @@ async function runAutomation() {
                 
                 console.log("Sending group message...");
                 await page.keyboard.press('Enter');
-                await delay(5000); // Wait for network dispatch
+                await delay(3000); // Wait for network dispatch
                 
-                console.log("✅ Successfully sent message to group!");
+                // If there's a separate confirmation code message, send it now
+                if (codeMessage && codeMessage.trim() !== '') {
+                    console.log("Typing separate code message...");
+                    const codeLines = codeMessage.split('\n');
+                    for (let j = 0; j < codeLines.length; j++) {
+                        await page.keyboard.type(codeLines[j], { delay: 10 });
+                        if (j < codeLines.length - 1) {
+                            await page.keyboard.down('Shift');
+                            await page.keyboard.press('Enter');
+                            await page.keyboard.up('Shift');
+                        }
+                    }
+                    await delay(1500);
+                    console.log("Sending separate code message...");
+                    await page.keyboard.press('Enter');
+                    await delay(3000);
+                }
+
+                console.log("✅ Successfully sent message(s) to group!");
             } else {
                 console.log("❌ Could not find group chat text box.");
             }
