@@ -47,18 +47,26 @@ async function sendSpecificMessage() {
             throw new Error("Facebook rejected the cookies. You need to export fresh cookies from your browser.");
         }
 
-        const messageBoxSelector = 'div[role="textbox"][contenteditable="true"]'; 
+                const messageBoxSelector = 'div[role="textbox"][contenteditable="true"]'; 
         
         console.log("Waiting for the chat box to appear...");
         await page.waitForSelector(messageBoxSelector, { timeout: 20000 });
         
-        console.log("Typing message...");
+        // --- NEW FIX: Stabilization Delay ---
+        // Give Facebook 3 seconds to finish loading chat history and stop redrawing the screen
+        console.log("Waiting for Facebook to stabilize...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // --- PROACTIVE FIX: Handle Multiline Messages properly ---
-        // Split the message by newlines and use Shift+Enter to avoid spamming multiple messages
+        // Now that the screen is stable, grab the final chat box and click it to focus the cursor
+        const chatBox = await page.waitForSelector(messageBoxSelector, { timeout: 5000 });
+        await chatBox.click();
+        // ------------------------------------
+        
+        console.log("Typing message...");
         const lines = targetMessage.split('\n');
         for (let i = 0; i < lines.length; i++) {
-            await page.type(messageBoxSelector, lines[i], { delay: 50 });
+            // Act like a human typing on the keyboard
+            await page.keyboard.type(lines[i], { delay: 50 });
             
             // If it's not the last line, press Shift+Enter for a line break
             if (i < lines.length - 1) {
@@ -67,7 +75,6 @@ async function sendSpecificMessage() {
                 await page.keyboard.up('Shift');
             }
         }
-        // --------------------------------------------------------
         
         console.log("Sending the completed message...");
         await page.keyboard.press('Enter');
