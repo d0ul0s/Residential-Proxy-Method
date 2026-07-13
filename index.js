@@ -18,16 +18,20 @@ async function sendSpecificMessage() {
     try {
         let cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
         
-        // --- NEW FIX: Sanitize cookies to prevent Puppeteer crash ---
+        // --- NEW FIX: Forcefully strip sameSite from every cookie ---
         cookies = cookies.map(cookie => {
-            if (cookie.sameSite && !['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
-                delete cookie.sameSite; 
-            }
+            // Delete sameSite entirely to avoid any type mismatch errors
+            delete cookie.sameSite;
+            
+            // EditThisCookie sometimes exports 'hostOnly' which Puppeteer also dislikes
+            delete cookie.hostOnly; 
+            
             return cookie;
         });
         // -----------------------------------------------------------
 
         await page.setCookie(...cookies);
+
 
         console.log(`Navigating to: ${targetUrl}`);
         await page.goto(targetUrl, { waitUntil: 'networkidle2' });
