@@ -54,15 +54,21 @@ async function sendSpecificMessage() {
         
         // --- NEW FIX: Stabilization Delay ---
         // Give Facebook 3 seconds to finish loading chat history and stop redrawing the screen
-        console.log("Waiting for Facebook to stabilize...");
+                console.log("Waiting for Facebook to stabilize...");
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Now that the screen is stable, grab the final chat box and click it to focus the cursor
-        const chatBox = await page.waitForSelector(messageBoxSelector, { timeout: 5000 });
+        // --- NEW FIX: Get the LAST text box on the screen (the actual chat box) ---
+        const allTextBoxes = await page.$$(messageBoxSelector);
+        if (allTextBoxes.length === 0) throw new Error("No text boxes found!");
+        
+        const chatBox = allTextBoxes[allTextBoxes.length - 1];
+        console.log(`Found ${allTextBoxes.length} text boxes. Clicking the chat box...`);
+        
         await chatBox.click();
-        // ------------------------------------
+        // -------------------------------------------------------------------------
         
         console.log("Typing message...");
+        // ... (Keep the rest of your typing logic exactly the same) ...
         const lines = targetMessage.split('\n');
         for (let i = 0; i < lines.length; i++) {
             // Act like a human typing on the keyboard
