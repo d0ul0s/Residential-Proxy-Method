@@ -1,7 +1,15 @@
 const puppeteer = require('puppeteer');
 
-async function sendGroupMessage() {
-    // The --no-sandbox flags are mandatory for GitHub Actions
+// The script now waits for the UI/Backend to hand it these two variables
+const targetUrl = process.env.CHAT_URL;
+const targetMessage = process.env.CHAT_MESSAGE;
+
+async function sendSpecificMessage() {
+    if (!targetUrl || !targetMessage) {
+        console.error("Missing URL or Message. Check your YAML file!");
+        return;
+    }
+
     const browser = await puppeteer.launch({ 
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -9,25 +17,19 @@ async function sendGroupMessage() {
     const page = await browser.newPage();
 
     try {
-        // 1. Inject the cookies from GitHub Secrets
         const cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
         await page.setCookie(...cookies);
 
-        // 2. Navigate to the chat
-        const groupChatUrl = 'https://www.messenger.com/t/YOUR_GROUP_CHAT_ID'; // Replace this!
-        await page.goto(groupChatUrl, { waitUntil: 'networkidle2' });
+        console.log(`Navigating to: ${targetUrl}`);
+        await page.goto(targetUrl, { waitUntil: 'networkidle2' });
 
-        // 3. Generate your dynamic message
-        const timeNow = new Date().toLocaleTimeString();
-        const message = `Automated class reminder deployed at ${timeNow}!`;
-
-        // 4. Type and send
         const messageBoxSelector = 'div[aria-label="Message"]'; 
         await page.waitForSelector(messageBoxSelector);
-        await page.type(messageBoxSelector, message, { delay: 50 });
+        
+        await page.type(messageBoxSelector, targetMessage, { delay: 50 });
         await page.keyboard.press('Enter');
-
-        console.log("Message deployed successfully.");
+        
+        console.log(`Successfully sent: "${targetMessage}"`);
 
     } catch (error) {
         console.error("Automation failed:", error);
@@ -36,4 +38,4 @@ async function sendGroupMessage() {
     }
 }
 
-sendGroupMessage();
+sendSpecificMessage();
