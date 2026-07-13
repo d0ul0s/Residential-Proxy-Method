@@ -1,0 +1,22 @@
+name: "Messenger Reminder: Test 2"
+
+on:
+  schedule:
+    - cron: "13 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  deploy-message:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Execute Script
+        env:
+          FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
+          CHAT_URL: 'https://www.facebook.com/messages/t/868907569173985/'
+          CHAT_MESSAGE: 'Hotdog'
+        run: node index.js
