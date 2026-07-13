@@ -12,6 +12,8 @@ try {
   console.error("Failed to parse REMINDER_TASKS", e);
 }
 
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 async function runAutomation() {
     console.log("🚀 Starting Messenger Automation...");
 
@@ -54,7 +56,7 @@ async function runAutomation() {
         if (targetMessage && targetMessage.trim() !== '') {
             console.log(`Navigating to group chat: ${targetUrl}`);
             await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-            await page.waitForTimeout(3000); // Stabilization
+            await delay(3000); // Stabilization
 
             // Handle E2EE Popup if it appears
             await handleE2EEPopup(page, e2eePin);
@@ -67,11 +69,11 @@ async function runAutomation() {
                 
                 console.log("Typing group message...");
                 await page.keyboard.type(targetMessage, { delay: 30 });
-                await page.waitForTimeout(1500);
+                await delay(1500);
                 
                 console.log("Sending group message...");
                 await page.keyboard.press('Enter');
-                await page.waitForTimeout(5000); // Wait for network dispatch
+                await delay(5000); // Wait for network dispatch
                 
                 console.log("✅ Successfully sent message to group!");
             } else {
@@ -91,7 +93,7 @@ async function runAutomation() {
                 const task = reminderTasks[i];
                 console.log(`\nNavigating to private chat: ${task.url}`);
                 await page.goto(task.url, { waitUntil: 'networkidle2', timeout: 60000 });
-                await page.waitForTimeout(3000);
+                await delay(3000);
 
                 await handleE2EEPopup(page, e2eePin);
 
@@ -114,10 +116,10 @@ async function runAutomation() {
                     await chatBox.focus();
                     
                     await page.keyboard.type(task.message, { delay: 30 });
-                    await page.waitForTimeout(1000);
+                    await delay(1000);
                     
                     await page.keyboard.press('Enter');
-                    await page.waitForTimeout(3000); // Network dispatch
+                    await delay(3000); // Network dispatch
                     console.log("✅ Sent private reminder successfully.");
                 } else {
                     console.log("❌ Could not find private chat text box.");
@@ -144,14 +146,14 @@ async function handleE2EEPopup(page, pin) {
             console.log("🔒 E2EE PIN Pop-up detected. Entering PIN...");
             await e2eeInput.focus();
             await page.keyboard.type(pin, { delay: 50 });
-            await page.waitForTimeout(1000);
+            await delay(1000);
             
             // Press Enter to submit
             await page.keyboard.press('Enter');
             
             // Wait for history to load
             console.log("Waiting for chat history to decrypt and load...");
-            await page.waitForTimeout(6000); 
+            await delay(6000); 
         } else {
             console.log("🔓 No E2EE PIN Pop-up detected, or no PIN provided.");
         }
