@@ -21,5 +21,6 @@ jobs:
         env:
           FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
           CHAT_URL: 'https://www.facebook.com/messages/t/868907569173985/'
-          CHAT_MESSAGE: ${{ github.event.inputs.dynamic_message }}
+          CHAT_MESSAGE: |
+            ${{ github.event.inputs.dynamic_message }}
         run: node index.js
