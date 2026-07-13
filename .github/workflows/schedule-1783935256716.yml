@@ -1,0 +1,22 @@
+name: "Messenger Reminder: Test Error"
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+jobs:
+  deploy-message:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Execute Script
+        env:
+          FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
+          CHAT_URL: 'https://m.me/test'
+          CHAT_MESSAGE: 'test'
+        run: node index.js
