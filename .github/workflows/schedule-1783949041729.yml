@@ -7,6 +7,10 @@ on:
         description: 'The message to send'
         required: true
         default: ''
+      code_message:
+        description: 'Optional secondary message containing confirmation codes'
+        required: false
+        default: ''
       reminder_tasks:
         description: 'JSON string of tasks to execute for targeted reminders'
         required: false
@@ -30,6 +34,8 @@ jobs:
           CHAT_URL: 'https://www.facebook.com/messages/t/868907569173985/'
           CHAT_MESSAGE: |
             ${{ github.event.inputs.dynamic_message }}
+          CHAT_CODE_MESSAGE: |
+            ${{ github.event.inputs.code_message }}
           REMINDER_TASKS: |
             ${{ github.event.inputs.reminder_tasks }}
           FB_E2EE_PIN: ${{ secrets.FB_E2EE_PIN }}
