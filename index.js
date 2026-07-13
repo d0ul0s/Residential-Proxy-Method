@@ -2,16 +2,21 @@ const puppeteer = require('puppeteer');
 
 const targetUrl = process.env.CHAT_URL;
 const targetMessage = process.env.CHAT_MESSAGE;
+const e2eePin = process.env.FB_E2EE_PIN;
+const reminderTasksRaw = process.env.REMINDER_TASKS || '[]';
+let reminderTasks = [];
 
-async function sendSpecificMessage() {
-    if (!targetUrl || !targetMessage) {
-        console.error("Missing URL or Message. Check your YAML file!");
-        return;
-    }
+try {
+  reminderTasks = JSON.parse(reminderTasksRaw);
+} catch (e) {
+  console.error("Failed to parse REMINDER_TASKS", e);
+}
 
-    // 1. Launch Chrome with the Proxy Server attached
+async function runAutomation() {
+    console.log("🚀 Starting Messenger Automation...");
+
     const browser = await puppeteer.launch({
-      headless: true, // or "new"
+      headless: true, // Set to false if testing locally
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -22,104 +27,132 @@ async function sendSpecificMessage() {
     try {
         const page = await browser.newPage();
 
-        // 2. Authenticate the Proxy
-        await page.authenticate({
-          username: process.env.PROXY_USERNAME,
-          password: process.env.PROXY_PASSWORD,
-        });
+        // 1. Authenticate the Proxy
+        if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+          await page.authenticate({
+            username: process.env.PROXY_USERNAME,
+            password: process.env.PROXY_PASSWORD,
+          });
+        }
 
-        // 3. Load and sanitize Facebook Cookies
+        // 2. Load and sanitize Facebook Cookies
         let cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
         cookies = cookies.map(cookie => {
             delete cookie.sameSite;
-            delete cookie.hostOnly; 
             return cookie;
         });
         await page.setCookie(...cookies);
 
-        console.log(`Navigating to: ${targetUrl}`);
-        await page.goto(targetUrl, { waitUntil: 'networkidle2' });
-        
-        // --- NEW FIX: Close the E2EE PIN Pop-up ---
-        console.log("Checking for E2EE PIN pop-up...");
-        try {
-            // Wait up to 5 seconds to see if the "Close" button appears
-            const closeButton = await page.waitForSelector('div[aria-label="Close"][role="button"]', { timeout: 5000 });
-            if (closeButton) {
-                console.log("PIN pop-up detected! Clicking the X button to dismiss it...");
-                await closeButton.click();
-                // Give the pop-up a second to animate away
-                await new Promise(resolve => setTimeout(resolve, 1500));
-            }
-        } catch (e) {
-            console.log("No pop-up detected. Proceeding...");
-        }
-        // ------------------------------------------
+        // ----------------------------------------------------
+        // PHASE 1: DISPATCH MAIN GROUP MESSAGE (IF APPLICABLE)
+        // ----------------------------------------------------
+        if (targetMessage && targetMessage.trim() !== '') {
+            console.log(`Navigating to group chat: ${targetUrl}`);
+            await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+            await page.waitForTimeout(3000); // Stabilization
 
-            
+            // Handle E2EE Popup if it appears
+            await handleE2EEPopup(page, e2eePin);
 
-        // 4. Debug Check: Did Facebook log us out?
-        const currentUrl = page.url();
-        console.log(`Current URL after load: ${currentUrl}`);
-        if (currentUrl.includes('login') || currentUrl.includes('checkpoint')) {
-            throw new Error("Facebook rejected the cookies. You need to export fresh cookies from your browser.");
-        }
-
-                const messageBoxSelector = 'div[role="textbox"][contenteditable="true"]'; 
-        
-        console.log("Waiting for the chat box to appear...");
-        await page.waitForSelector(messageBoxSelector, { timeout: 20000 });
-        
-        // --- NEW FIX: Stabilization Delay ---
-        // Give Facebook 3 seconds to finish loading chat history and stop redrawing the screen
-                console.log("Waiting for Facebook to stabilize...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // --- NEW FIX: Get the LAST text box on the screen (the actual chat box) ---
-                const allTextBoxes = await page.$$(messageBoxSelector);
-        if (allTextBoxes.length === 0) throw new Error("No text boxes found!");
-        
-        const chatBox = allTextBoxes[allTextBoxes.length - 1];
-        console.log(`Found ${allTextBoxes.length} text boxes. Focusing the chat box...`);
-        
-        // 1. Force the cursor into the box instead of clicking the padding
-        await chatBox.focus();
-        
-        // 2. Wait 1 second for the cursor to actually start blinking
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        console.log("Typing message...");
-        const lines = targetMessage.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-            await page.keyboard.type(lines[i], { delay: 50 });
-            if (i < lines.length - 1) {
-                await page.keyboard.down('Shift');
+            console.log("Focusing the chat box...");
+            const textBoxes = await page.$$('div[role="textbox"]');
+            if (textBoxes.length > 0) {
+                const chatBox = textBoxes[textBoxes.length - 1]; // Usually the last one
+                await chatBox.focus();
+                
+                console.log("Typing group message...");
+                await page.keyboard.type(targetMessage, { delay: 30 });
+                await page.waitForTimeout(1500);
+                
+                console.log("Sending group message...");
                 await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
+                await page.waitForTimeout(5000); // Wait for network dispatch
+                
+                console.log("✅ Successfully sent message to group!");
+            } else {
+                console.log("❌ Could not find group chat text box.");
+            }
+        } else {
+            console.log("⏭️ Skipping Main Group Message (Dynamic Message was empty).");
+        }
+
+        // ----------------------------------------------------
+        // PHASE 2: DISPATCH INDIVIDUAL ROLE REMINDERS
+        // ----------------------------------------------------
+        if (reminderTasks.length > 0) {
+            console.log(`\n📬 Processing ${reminderTasks.length} Individual Role Reminders...`);
+
+            for (let i = 0; i < reminderTasks.length; i++) {
+                const task = reminderTasks[i];
+                console.log(`\nNavigating to private chat: ${task.url}`);
+                await page.goto(task.url, { waitUntil: 'networkidle2', timeout: 60000 });
+                await page.waitForTimeout(3000);
+
+                await handleE2EEPopup(page, e2eePin);
+
+                // --- CHECK CHAT HISTORY FOR CONFIRMATION CODE ---
+                console.log("Scanning recent chat history for confirmation code...");
+                const chatHistoryText = await page.evaluate(() => {
+                    return document.body.innerText; 
+                });
+
+                if (chatHistoryText.includes(task.expectedCode)) {
+                    console.log(`✅ Member ALREADY CONFIRMED using code ${task.expectedCode}. Skipping reminder.`);
+                    continue; // Skip to next task
+                }
+
+                // If not confirmed, send the reminder
+                console.log(`❌ No confirmation code found. Sending nudge to member...`);
+                const textBoxes = await page.$$('div[role="textbox"]');
+                if (textBoxes.length > 0) {
+                    const chatBox = textBoxes[textBoxes.length - 1];
+                    await chatBox.focus();
+                    
+                    await page.keyboard.type(task.message, { delay: 30 });
+                    await page.waitForTimeout(1000);
+                    
+                    await page.keyboard.press('Enter');
+                    await page.waitForTimeout(3000); // Network dispatch
+                    console.log("✅ Sent private reminder successfully.");
+                } else {
+                    console.log("❌ Could not find private chat text box.");
+                }
             }
         }
-        
-        console.log("Waiting for Facebook to register the text...");
-        // 3. Wait 1 second before pressing enter so Facebook activates the Send state
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        console.log("Sending the completed message...");
-        await page.keyboard.press('Enter');
-        
-        // Press enter one more time just in case it missed the first one
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await page.keyboard.press('Enter');
-        
-        console.log("Waiting for network dispatch...");
-        await new Promise(resolve => setTimeout(resolve, 5000));
+
         await page.screenshot({ path: 'debug.png', fullPage: true });
-        console.log(`Successfully sent message to group!`);
+        console.log("📸 Saved debug screenshot.");
 
     } catch (error) {
-        console.error("Automation failed:", error);
+        console.error("Execution Error:", error);
     } finally {
         await browser.close();
     }
 }
 
-sendSpecificMessage();
+async function handleE2EEPopup(page, pin) {
+    try {
+        // Facebook often throws a modal asking to Enter PIN for End-to-End Encryption
+        // We look for common text or input fields related to this
+        const e2eeInput = await page.$('input[type="password"], input[autocomplete="one-time-code"]');
+        if (e2eeInput && pin) {
+            console.log("🔒 E2EE PIN Pop-up detected. Entering PIN...");
+            await e2eeInput.focus();
+            await page.keyboard.type(pin, { delay: 50 });
+            await page.waitForTimeout(1000);
+            
+            // Press Enter to submit
+            await page.keyboard.press('Enter');
+            
+            // Wait for history to load
+            console.log("Waiting for chat history to decrypt and load...");
+            await page.waitForTimeout(6000); 
+        } else {
+            console.log("🔓 No E2EE PIN Pop-up detected, or no PIN provided.");
+        }
+    } catch (err) {
+        console.log("Error handling E2EE popup, continuing...", err.message);
+    }
+}
+
+runAutomation();
