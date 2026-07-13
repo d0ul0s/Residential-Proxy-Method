@@ -54,7 +54,7 @@ async function runAutomation() {
         // ----------------------------------------------------
         // PHASE 1: DISPATCH MAIN GROUP MESSAGE (IF APPLICABLE)
         // ----------------------------------------------------
-        if (targetMessage && targetMessage.trim() !== '') {
+        if ((targetMessage && targetMessage.trim() !== '') || (codeMessage && codeMessage.trim() !== '')) {
             console.log(`Navigating to group chat: ${targetUrl}`);
             await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
             await delay(3000); // Stabilization
@@ -68,23 +68,23 @@ async function runAutomation() {
                 const chatBox = textBoxes[textBoxes.length - 1]; // Usually the last one
                 await chatBox.focus();
                 
-                console.log("Typing group message...");
-                
-                const lines = targetMessage.split('\n');
-                for (let j = 0; j < lines.length; j++) {
-                    await page.keyboard.type(lines[j], { delay: 10 });
-                    if (j < lines.length - 1) {
-                        await page.keyboard.down('Shift');
-                        await page.keyboard.press('Enter');
-                        await page.keyboard.up('Shift');
+                if (targetMessage && targetMessage.trim() !== '') {
+                    console.log("Typing group message...");
+                    const lines = targetMessage.split('\n');
+                    for (let j = 0; j < lines.length; j++) {
+                        await page.keyboard.type(lines[j], { delay: 10 });
+                        if (j < lines.length - 1) {
+                            await page.keyboard.down('Shift');
+                            await page.keyboard.press('Enter');
+                            await page.keyboard.up('Shift');
+                        }
                     }
+                    
+                    await delay(1500);
+                    console.log("Sending group message...");
+                    await page.keyboard.press('Enter');
+                    await delay(3000); // Wait for network dispatch
                 }
-                
-                await delay(1500);
-                
-                console.log("Sending group message...");
-                await page.keyboard.press('Enter');
-                await delay(3000); // Wait for network dispatch
                 
                 // If there's a separate confirmation code message, send it now
                 if (codeMessage && codeMessage.trim() !== '') {
@@ -109,7 +109,7 @@ async function runAutomation() {
                 console.log("❌ Could not find group chat text box.");
             }
         } else {
-            console.log("⏭️ Skipping Main Group Message (Dynamic Message was empty).");
+            console.log("⏭️ Skipping Main Group Message (Both dynamic message and code message were empty).");
         }
 
         // ----------------------------------------------------
