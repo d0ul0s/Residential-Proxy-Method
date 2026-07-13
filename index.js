@@ -15,13 +15,18 @@ try {
 async function runAutomation() {
     console.log("🚀 Starting Messenger Automation...");
 
+    const puppeteerArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox'
+    ];
+
+    if (process.env.PROXY_SERVER) {
+      puppeteerArgs.push(`--proxy-server=${process.env.PROXY_SERVER}`);
+    }
+
     const browser = await puppeteer.launch({
       headless: true, // Set to false if testing locally
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        `--proxy-server=${process.env.PROXY_SERVER}` 
-      ]
+      args: puppeteerArgs
     });
 
     try {
