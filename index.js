@@ -9,59 +9,74 @@ async function sendSpecificMessage() {
         return;
     }
 
-    const browser = await puppeteer.launch({ 
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    // 1. Launch Chrome with the Proxy Server attached
+    const browser = await puppeteer.launch({
+      headless: true, // or "new"
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        `--proxy-server=${process.env.PROXY_SERVER}` 
+      ]
     });
-    const page = await browser.newPage();
 
     try {
+        const page = await browser.newPage();
+
+        // 2. Authenticate the Proxy
+        await page.authenticate({
+          username: process.env.PROXY_USERNAME,
+          password: process.env.PROXY_PASSWORD,
+        });
+
+        // 3. Load and sanitize Facebook Cookies
         let cookies = JSON.parse(process.env.FACEBOOK_COOKIES);
-        
-        // --- NEW FIX: Forcefully strip sameSite from every cookie ---
         cookies = cookies.map(cookie => {
-            // Delete sameSite entirely to avoid any type mismatch errors
             delete cookie.sameSite;
-            
-            // EditThisCookie sometimes exports 'hostOnly' which Puppeteer also dislikes
             delete cookie.hostOnly; 
-            
             return cookie;
         });
-        // -----------------------------------------------------------
-
         await page.setCookie(...cookies);
 
-
-                console.log(`Navigating to: ${targetUrl}`);
+        console.log(`Navigating to: ${targetUrl}`);
         await page.goto(targetUrl, { waitUntil: 'networkidle2' });
 
-        // 1. Debug Check: Did Facebook log us out?
+        // 4. Debug Check: Did Facebook log us out?
         const currentUrl = page.url();
         console.log(`Current URL after load: ${currentUrl}`);
-        
         if (currentUrl.includes('login') || currentUrl.includes('checkpoint')) {
-            throw new Error("Facebook rejected the cookies and redirected to the login/checkpoint page. You need to export fresh cookies from your browser.");
+            throw new Error("Facebook rejected the cookies. You need to export fresh cookies from your browser.");
         }
 
-        // 2. Use a more robust selector for the Messenger text box
         const messageBoxSelector = 'div[role="textbox"][contenteditable="true"]'; 
         
         console.log("Waiting for the chat box to appear...");
         await page.waitForSelector(messageBoxSelector, { timeout: 20000 });
         
-                console.log("Typing message...");
-        await page.type(messageBoxSelector, targetMessage, { delay: 50 });
+        console.log("Typing message...");
         
-        console.log("Sending...");
+        // --- PROACTIVE FIX: Handle Multiline Messages properly ---
+        // Split the message by newlines and use Shift+Enter to avoid spamming multiple messages
+        const lines = targetMessage.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            await page.type(messageBoxSelector, lines[i], { delay: 50 });
+            
+            // If it's not the last line, press Shift+Enter for a line break
+            if (i < lines.length - 1) {
+                await page.keyboard.down('Shift');
+                await page.keyboard.press('Enter');
+                await page.keyboard.up('Shift');
+            }
+        }
+        // --------------------------------------------------------
+        
+        console.log("Sending the completed message...");
         await page.keyboard.press('Enter');
         
-        // --- NEW FIX: Wait 5 seconds to let the network request finish! ---
+        // Wait 5 seconds to let the network request finish!
         console.log("Waiting for network dispatch...");
         await new Promise(resolve => setTimeout(resolve, 5000));
-        // ------------------------------------------------------------------
         
-        console.log(`Successfully sent: "${targetMessage}"`);
+        console.log(`Successfully sent message to group!`);
 
     } catch (error) {
         console.error("Automation failed:", error);
