@@ -58,23 +58,22 @@ async function sendSpecificMessage() {
         await new Promise(resolve => setTimeout(resolve, 3000));
         
         // --- NEW FIX: Get the LAST text box on the screen (the actual chat box) ---
-        const allTextBoxes = await page.$$(messageBoxSelector);
+                const allTextBoxes = await page.$$(messageBoxSelector);
         if (allTextBoxes.length === 0) throw new Error("No text boxes found!");
         
         const chatBox = allTextBoxes[allTextBoxes.length - 1];
-        console.log(`Found ${allTextBoxes.length} text boxes. Clicking the chat box...`);
+        console.log(`Found ${allTextBoxes.length} text boxes. Focusing the chat box...`);
         
-        await chatBox.click();
-        // -------------------------------------------------------------------------
+        // 1. Force the cursor into the box instead of clicking the padding
+        await chatBox.focus();
+        
+        // 2. Wait 1 second for the cursor to actually start blinking
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         console.log("Typing message...");
-        // ... (Keep the rest of your typing logic exactly the same) ...
         const lines = targetMessage.split('\n');
         for (let i = 0; i < lines.length; i++) {
-            // Act like a human typing on the keyboard
             await page.keyboard.type(lines[i], { delay: 50 });
-            
-            // If it's not the last line, press Shift+Enter for a line break
             if (i < lines.length - 1) {
                 await page.keyboard.down('Shift');
                 await page.keyboard.press('Enter');
@@ -82,13 +81,19 @@ async function sendSpecificMessage() {
             }
         }
         
+        console.log("Waiting for Facebook to register the text...");
+        // 3. Wait 1 second before pressing enter so Facebook activates the Send state
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         console.log("Sending the completed message...");
         await page.keyboard.press('Enter');
         
-        // Wait 5 seconds to let the network request finish!
+        // Press enter one more time just in case it missed the first one
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await page.keyboard.press('Enter');
+        
         console.log("Waiting for network dispatch...");
         await new Promise(resolve => setTimeout(resolve, 5000));
-        
         console.log(`Successfully sent message to group!`);
 
     } catch (error) {
