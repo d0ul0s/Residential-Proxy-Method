@@ -33,13 +33,27 @@ async function sendSpecificMessage() {
         await page.setCookie(...cookies);
 
 
-        console.log(`Navigating to: ${targetUrl}`);
+                console.log(`Navigating to: ${targetUrl}`);
         await page.goto(targetUrl, { waitUntil: 'networkidle2' });
 
-        const messageBoxSelector = 'div[aria-label="Message"]'; 
-        await page.waitForSelector(messageBoxSelector);
+        // 1. Debug Check: Did Facebook log us out?
+        const currentUrl = page.url();
+        console.log(`Current URL after load: ${currentUrl}`);
         
+        if (currentUrl.includes('login') || currentUrl.includes('checkpoint')) {
+            throw new Error("Facebook rejected the cookies and redirected to the login/checkpoint page. You need to export fresh cookies from your browser.");
+        }
+
+        // 2. Use a more robust selector for the Messenger text box
+        const messageBoxSelector = 'div[role="textbox"][contenteditable="true"]'; 
+        
+        console.log("Waiting for the chat box to appear...");
+        await page.waitForSelector(messageBoxSelector, { timeout: 20000 });
+        
+        console.log("Typing message...");
         await page.type(messageBoxSelector, targetMessage, { delay: 50 });
+        
+        console.log("Sending...");
         await page.keyboard.press('Enter');
         
         console.log(`Successfully sent: "${targetMessage}"`);
