@@ -68,7 +68,17 @@ async function runAutomation() {
                 await chatBox.focus();
                 
                 console.log("Typing group message...");
-                await page.keyboard.type(targetMessage, { delay: 30 });
+                
+                const lines = targetMessage.split('\n');
+                for (let j = 0; j < lines.length; j++) {
+                    await page.keyboard.type(lines[j], { delay: 10 });
+                    if (j < lines.length - 1) {
+                        await page.keyboard.down('Shift');
+                        await page.keyboard.press('Enter');
+                        await page.keyboard.up('Shift');
+                    }
+                }
+                
                 await delay(1500);
                 
                 console.log("Sending group message...");
@@ -115,7 +125,16 @@ async function runAutomation() {
                     const chatBox = textBoxes[textBoxes.length - 1];
                     await chatBox.focus();
                     
-                    await page.keyboard.type(task.message, { delay: 30 });
+                    const pLines = task.message.split('\n');
+                    for (let j = 0; j < pLines.length; j++) {
+                        await page.keyboard.type(pLines[j], { delay: 10 });
+                        if (j < pLines.length - 1) {
+                            await page.keyboard.down('Shift');
+                            await page.keyboard.press('Enter');
+                            await page.keyboard.up('Shift');
+                        }
+                    }
+                    
                     await delay(1000);
                     
                     await page.keyboard.press('Enter');
