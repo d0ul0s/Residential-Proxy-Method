@@ -142,7 +142,8 @@ async function runAutomation() {
                 const textBoxes = await page.$$('div[role="textbox"]');
                 if (textBoxes.length > 0) {
                     const chatBox = textBoxes[textBoxes.length - 1];
-                    await chatBox.focus();
+                    await chatBox.click();
+                    await delay(1000);
                     
                     const pLines = task.message.split('\n');
                     for (let j = 0; j < pLines.length; j++) {
@@ -154,10 +155,10 @@ async function runAutomation() {
                         }
                     }
                     
-                    await delay(1000);
+                    await delay(2000); // Give React time to recognize the text and enable the Send button
                     
                     await page.keyboard.press('Enter');
-                    await delay(3000); // Network dispatch
+                    await delay(5000); // Network dispatch
                     console.log("✅ Sent private reminder successfully.");
                 } else {
                     console.log("❌ Could not find private chat text box.");
