@@ -158,7 +158,7 @@ async function runAutomation() {
                     await delay(2000); // Give React time to recognize the text and enable the Send button
                     
                     await page.keyboard.press('Enter');
-                    await delay(5000); // Network dispatch
+                    await delay(15000); // 15s Network dispatch for slow proxies
                     console.log("✅ Sent private reminder successfully.");
                 } else {
                     console.log("❌ Could not find private chat text box.");
