@@ -54,7 +54,7 @@ async function runAutomation() {
         // ----------------------------------------------------
         // PHASE 1: DISPATCH MAIN GROUP MESSAGE (IF APPLICABLE)
         // ----------------------------------------------------
-        if ((targetMessage && targetMessage.trim() !== '') || (codeMessage && codeMessage.trim() !== '')) {
+        if (targetUrl && targetUrl.trim() !== '' && ((targetMessage && targetMessage.trim() !== '' && targetMessage.trim() !== 'NO_MESSAGE') || (codeMessage && codeMessage.trim() !== '' && codeMessage.trim() !== 'NO_MESSAGE'))) {
             console.log(`Navigating to group chat: ${targetUrl}`);
             await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
             await delay(3000); // Stabilization
