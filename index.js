@@ -110,15 +110,16 @@ async function runAutomation() {
             await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
             await delay(3000); // Stabilization
 
-            // Handle E2EE Popup if it appears
-            await handleE2EEPopup(page, e2eePin);
-
             console.log("Waiting for the chat box to load...");
             try {
                 await page.waitForSelector('div[role="textbox"]', { timeout: 45000 });
+                await delay(2000); // Give it a moment in case the E2EE popup triggers slightly after
             } catch (e) {
                 console.log("⚠️ Timed out waiting for chat box. It might still be loading or hidden.");
             }
+
+            // Handle E2EE Popup if it appears (now that the page is loaded)
+            await handleE2EEPopup(page, e2eePin);
 
             console.log("Focusing the chat box...");
             const textBoxes = await page.$$('div[role="textbox"]');
@@ -182,6 +183,14 @@ async function runAutomation() {
                 await page.goto(task.url, { waitUntil: 'networkidle2', timeout: 60000 });
                 await delay(3000);
 
+                console.log("Waiting for private chat box to load...");
+                try {
+                    await page.waitForSelector('div[role="textbox"]', { timeout: 45000 });
+                    await delay(2000); // Give it a moment for E2EE popup
+                } catch (e) {
+                    console.log("⚠️ Timed out waiting for private chat box.");
+                }
+
                 await handleE2EEPopup(page, e2eePin);
 
                 // --- CHECK CHAT HISTORY FOR CONFIRMATION CODE ---
@@ -197,12 +206,6 @@ async function runAutomation() {
 
                 // If not confirmed, send the reminder
                 console.log(`❌ No confirmation code found. Sending nudge to member...`);
-                console.log("Waiting for private chat box to load...");
-                try {
-                    await page.waitForSelector('div[role="textbox"]', { timeout: 45000 });
-                } catch (e) {
-                    console.log("⚠️ Timed out waiting for private chat box.");
-                }
 
                 const textBoxes = await page.$$('div[role="textbox"]');
                 if (textBoxes.length > 0) {
@@ -243,23 +246,44 @@ async function runAutomation() {
 
 async function handleE2EEPopup(page, pin) {
     try {
-        // Facebook often throws a modal asking to Enter PIN for End-to-End Encryption
-        // We look for common text or input fields related to this
-        const e2eeInput = await page.$('input[type="password"], input[autocomplete="one-time-code"]');
-        if (e2eeInput && pin) {
-            console.log("🔒 E2EE PIN Pop-up detected. Entering PIN...");
-            await e2eeInput.focus();
-            await page.keyboard.type(pin, { delay: 50 });
-            await delay(1000);
-            
-            // Press Enter to submit
-            await page.keyboard.press('Enter');
-            
-            // Wait for history to load
-            console.log("Waiting for chat history to decrypt and load...");
-            await delay(6000); 
+        console.log("Checking for E2EE PIN Pop-up...");
+        // Wait up to 3 seconds for a dialog just in case it's animating in
+        const dialog = await page.waitForSelector('div[role="dialog"]', { timeout: 3000 }).catch(() => null);
+        
+        if (dialog) {
+            const text = await page.evaluate(el => el.innerText, dialog);
+            if (text.includes("PIN") || text.includes("restore your chats") || text.includes("Enter your") || text.includes("one-time code")) {
+                console.log("🔒 E2EE PIN Pop-up detected.");
+                if (pin) {
+                    console.log("Entering PIN...");
+                    const inputs = await dialog.$$('input');
+                    if (inputs.length > 0) {
+                        await inputs[0].focus();
+                        await page.keyboard.type(pin, { delay: 100 });
+                        await delay(1000);
+                        await page.keyboard.press('Enter');
+                        console.log("Waiting for chat history to decrypt and load...");
+                        await delay(6000); 
+                        return;
+                    }
+                }
+                
+                console.log("No PIN provided or no inputs found. Attempting to close the popup...");
+                // Search for close button by aria-label or just pressing Escape
+                const closeBtn = await dialog.$('div[aria-label="Close"], div[aria-label="Close"] i');
+                if (closeBtn) {
+                    await closeBtn.click();
+                    console.log("Closed E2EE popup via button.");
+                } else {
+                    await page.keyboard.press('Escape');
+                    console.log("Sent Escape key to close E2EE popup.");
+                }
+                await delay(1500);
+            } else {
+                console.log("🔓 Dialog found, but it doesn't look like an E2EE prompt.");
+            }
         } else {
-            console.log("🔓 No E2EE PIN Pop-up detected, or no PIN provided.");
+            console.log("🔓 No E2EE PIN Pop-up detected.");
         }
     } catch (err) {
         console.log("Error handling E2EE popup, continuing...", err.message);
