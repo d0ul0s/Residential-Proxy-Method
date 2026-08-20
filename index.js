@@ -119,7 +119,7 @@ async function runAutomation() {
                 const chatBox = textBoxes[textBoxes.length - 1]; // Usually the last one
                 await chatBox.focus();
                 
-                if (targetMessage && targetMessage.trim() !== '') {
+                if (targetMessage && targetMessage.trim() !== '' && targetMessage !== 'NO_MESSAGE') {
                     console.log("Typing group message...");
                     const lines = targetMessage.split('\n');
                     for (let j = 0; j < lines.length; j++) {
@@ -138,7 +138,7 @@ async function runAutomation() {
                 }
                 
                 // If there's a separate confirmation code message, send it now
-                if (codeMessage && codeMessage.trim() !== '') {
+                if (codeMessage && codeMessage.trim() !== '' && codeMessage !== 'NO_MESSAGE') {
                     console.log("Typing separate code message...");
                     const codeLines = codeMessage.split('\n');
                     for (let j = 0; j < codeLines.length; j++) {
