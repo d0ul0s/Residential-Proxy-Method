@@ -261,9 +261,20 @@ async function handleE2EEPopup(page, pin) {
                         await inputs[0].focus();
                         await page.keyboard.type(pin, { delay: 100 });
                         await delay(1000);
-                        await page.keyboard.press('Enter');
+                        
                         console.log("Waiting for chat history to decrypt and load...");
-                        await delay(6000); 
+                        
+                        // Wait for the dialog to disappear (up to 30 seconds)
+                        try {
+                            await page.waitForFunction(() => !document.querySelector('div[role="dialog"]'), { timeout: 30000 });
+                            console.log("E2EE popup disappeared successfully.");
+                        } catch (e) {
+                            console.log("E2EE popup is still verifying or stuck. Trying to press Escape to dismiss it.");
+                            await page.keyboard.press('Escape');
+                            await delay(2000);
+                        }
+                        
+                        await delay(2000); // Give the UI a moment to settle
                         return;
                     }
                 }
