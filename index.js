@@ -113,6 +113,13 @@ async function runAutomation() {
             // Handle E2EE Popup if it appears
             await handleE2EEPopup(page, e2eePin);
 
+            console.log("Waiting for the chat box to load...");
+            try {
+                await page.waitForSelector('div[role="textbox"]', { timeout: 45000 });
+            } catch (e) {
+                console.log("⚠️ Timed out waiting for chat box. It might still be loading or hidden.");
+            }
+
             console.log("Focusing the chat box...");
             const textBoxes = await page.$$('div[role="textbox"]');
             if (textBoxes.length > 0) {
@@ -190,6 +197,13 @@ async function runAutomation() {
 
                 // If not confirmed, send the reminder
                 console.log(`❌ No confirmation code found. Sending nudge to member...`);
+                console.log("Waiting for private chat box to load...");
+                try {
+                    await page.waitForSelector('div[role="textbox"]', { timeout: 45000 });
+                } catch (e) {
+                    console.log("⚠️ Timed out waiting for private chat box.");
+                }
+
                 const textBoxes = await page.$$('div[role="textbox"]');
                 if (textBoxes.length > 0) {
                     const chatBox = textBoxes[textBoxes.length - 1];
