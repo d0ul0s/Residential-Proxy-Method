@@ -1,0 +1,39 @@
+name: "Session Keep-Alive"
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *' # Run every 6 hours
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Execute Script
+        env:
+          FACEBOOK_COOKIES: ${{ secrets.FACEBOOK_COOKIES }}
+          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
+          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
+          CHAT_URL: ''
+          CHAT_MESSAGE: ''
+          CHAT_CODE_MESSAGE: ''
+          REMINDER_TASKS: '[]'
+          FB_E2EE_PIN: ${{ secrets.FB_E2EE_PIN }}
+          FB_EMAIL: ${{ secrets.FB_EMAIL }}
+          FB_PASSWORD: ${{ secrets.FB_PASSWORD }}
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node index.js
+      - name: Upload Debug Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshot-keep-alive
+          path: debug.png
+          retention-days: 1
