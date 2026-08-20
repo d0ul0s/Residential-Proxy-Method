@@ -27,6 +27,17 @@ try {
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
+/* The backend cannot send an empty string for a required workflow input, so it
+   sends this sentinel to mean "there is no message of this kind".
+ *
+ * It has to be understood in one place. The guard that decided whether to open
+ * the chat at all knew about it, but the two blocks that actually type did not
+ * — they only checked for an empty string — so a run with no code message
+ * dutifully typed the word NO_MESSAGE into the group chat and sent it. */
+const SENTINEL = 'NO_MESSAGE';
+const meaningful = (value) =>
+  typeof value === 'string' && value.trim() !== '' && value.trim() !== SENTINEL;
+
 /**
  * Why a chat would not open. Only ever called once something has already gone
  * wrong, so a false positive here can never abort a run that is working.
@@ -136,7 +147,7 @@ async function runAutomation() {
         // ----------------------------------------------------
         // PHASE 1: DISPATCH MAIN GROUP MESSAGE (IF APPLICABLE)
         // ----------------------------------------------------
-        if (targetUrl && targetUrl.trim() !== '' && ((targetMessage && targetMessage.trim() !== '' && targetMessage.trim() !== 'NO_MESSAGE') || (codeMessage && codeMessage.trim() !== '' && codeMessage.trim() !== 'NO_MESSAGE'))) {
+        if (targetUrl && targetUrl.trim() !== '' && (meaningful(targetMessage) || meaningful(codeMessage))) {
             console.log(`Navigating to group chat: ${targetUrl}`);
             await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
             await delay(3000); // Stabilization
@@ -150,7 +161,7 @@ async function runAutomation() {
                 const chatBox = textBoxes[textBoxes.length - 1]; // Usually the last one
                 await chatBox.focus();
 
-                if (targetMessage && targetMessage.trim() !== '') {
+                if (meaningful(targetMessage)) {
                     console.log("Typing group message...");
                     await typeMessage(page, targetMessage);
 
@@ -162,7 +173,7 @@ async function runAutomation() {
                 }
 
                 // If there's a separate confirmation code message, send it now
-                if (codeMessage && codeMessage.trim() !== '') {
+                if (meaningful(codeMessage)) {
                     console.log("Typing separate code message...");
                     await typeMessage(page, codeMessage);
 
@@ -209,6 +220,11 @@ async function runAutomation() {
                 }
 
                 // If not confirmed, send the reminder
+                if (!meaningful(task.message)) {
+                    console.log("⏭️ Reminder task has no message text — skipping.");
+                    continue;
+                }
+
                 console.log(`❌ No confirmation code found. Sending nudge to member...`);
                 const textBoxes = await page.$$('div[role="textbox"]');
                 if (textBoxes.length > 0) {
