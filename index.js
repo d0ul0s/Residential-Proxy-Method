@@ -33,7 +33,7 @@ async function runAutomation() {
     });
 
     try {
-        const page = await browser.newPage();
+        let page = await browser.newPage();
 
         // 1. Authenticate the Proxy
         if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
@@ -78,33 +78,20 @@ async function runAutomation() {
             if (!fbEmail || !fbPassword) {
                 console.error("❌ FB_EMAIL or FB_PASSWORD not provided. Cannot auto-login.");
             } else {
-                console.log("Checking for standard login form...");
-                let emailInput = await page.$('input[name="email"]').catch(() => null);
-                
-                if (!emailInput) {
-                    console.log("No email input found. Looking for 'Use another profile' button...");
-                    const clicked = await page.evaluate(() => {
-                        const elements = Array.from(document.querySelectorAll('*'));
-                        for (let el of elements) {
-                            if (el.innerText === 'Use another profile' && (el.tagName === 'DIV' || el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SPAN')) {
-                                el.click();
-                                return true;
-                            }
-                        }
-                        return false;
+                console.log("Cookies are expired. Creating a fresh incognito context to force a clean login screen...");
+                const context = await browser.createIncognitoBrowserContext();
+                page = await context.newPage();
+
+                // Authenticate proxy again for the new page
+                if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+                    await page.authenticate({
+                        username: process.env.PROXY_USERNAME,
+                        password: process.env.PROXY_PASSWORD,
                     });
-                    
-                    if (clicked) {
-                        console.log("Clicked 'Use another profile'. Waiting for form to appear...");
-                        await delay(2000);
-                    } else {
-                        console.log("Could not find 'Use another profile' button. Navigating manually to /login...");
-                        await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-                        const client = await page.target().createCDPSession();
-                        await client.send('Network.clearBrowserCookies');
-                        await page.goto('https://www.facebook.com/login', { waitUntil: 'networkidle2', timeout: 60000 });
-                    }
                 }
+                
+                console.log("Navigating to standard login page...");
+                await page.goto('https://www.facebook.com/login', { waitUntil: 'networkidle2', timeout: 60000 });
                 
                 console.log("Entering credentials...");
                 await page.waitForSelector('input[name="email"]', { timeout: 30000 });
