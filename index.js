@@ -78,13 +78,48 @@ async function runAutomation() {
             if (!fbEmail || !fbPassword) {
                 console.error("❌ FB_EMAIL or FB_PASSWORD not provided. Cannot auto-login.");
             } else {
-                await page.waitForSelector('input[name="email"]');
-                await page.type('input[name="email"]', fbEmail, { delay: 50 });
-                await page.type('input[name="pass"]', fbPassword, { delay: 50 });
-                await page.keyboard.press('Enter');
+                console.log("Checking login screen type...");
+                const emailInput = await page.$('input[name="email"]').catch(() => null);
+                
+                if (!emailInput) {
+                    console.log("No email input found. Checking for 'Continue' button (Recent Logins)...");
+                    // Try to find and click a button containing "Continue" or the profile picture
+                    const buttons = await page.$$('div[role="button"], button, a[role="button"]');
+                    let clickedContinue = false;
+                    for (const btn of buttons) {
+                        const text = await page.evaluate(el => el.innerText, btn);
+                        if (text.match(/Continue/i)) {
+                            console.log("Found 'Continue' button. Clicking it...");
+                            await btn.click();
+                            clickedContinue = true;
+                            break;
+                        }
+                    }
+                    if (!clickedContinue) {
+                        console.log("Could not find 'Continue' button. Trying to click any profile block.");
+                        const profileBlock = await page.$('div[data-testid="royal_login_button"], div[role="button"]:not([aria-label])');
+                        if (profileBlock) await profileBlock.click();
+                    }
+                } else {
+                    console.log("Found standard login form. Entering credentials...");
+                    await page.type('input[name="email"]', fbEmail, { delay: 50 });
+                    await page.type('input[name="pass"]', fbPassword, { delay: 50 });
+                    await page.keyboard.press('Enter');
+                }
                 
                 console.log("Waiting for login to complete...");
-                await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
+                try {
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
+                } catch (e) {
+                    console.log("Navigation timed out or didn't occur. Checking if password is required...");
+                    const passInput = await page.$('input[name="pass"]');
+                    if (passInput) {
+                        console.log("Password required! Entering password...");
+                        await page.type('input[name="pass"]', fbPassword, { delay: 50 });
+                        await page.keyboard.press('Enter');
+                        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
+                    }
+                }
                 
                 // Check if login succeeded
                 if (page.url().includes('login') || await page.$('input[name="email"]')) {
