@@ -64,7 +64,14 @@ async function runAutomation() {
         await page.goto('https://www.facebook.com/', { waitUntil: 'networkidle2', timeout: 60000 });
         
         let needLogin = false;
-        if (page.url().includes('login') || await page.$('input[name="email"]')) {
+        
+        // If we see the login URL, an email input, OR a "Continue" button from the Recent Logins screen, we need to log in.
+        const isRecentLogins = await page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll('div[role="button"], button, a[role="button"]'));
+            return elements.some(el => el.innerText && el.innerText.trim() === 'Continue');
+        });
+
+        if (page.url().includes('login') || await page.$('input[name="email"]') || isRecentLogins) {
             needLogin = true;
             console.log("❌ Cookies are invalid or missing. Attempting auto-login...");
         } else {
