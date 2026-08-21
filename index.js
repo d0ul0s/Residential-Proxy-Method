@@ -32,8 +32,9 @@ async function runAutomation() {
       args: puppeteerArgs
     });
 
+    let page;
     try {
-        let page = await browser.newPage();
+        page = await browser.newPage();
 
         // 1. Authenticate the Proxy
         if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
