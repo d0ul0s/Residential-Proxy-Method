@@ -273,6 +273,14 @@ async function runAutomation() {
 
     } catch (error) {
         console.error("Execution Error:", error);
+        if (typeof page !== 'undefined') {
+            try {
+                await page.screenshot({ path: 'debug.png', fullPage: true });
+                console.log("📸 Saved debug screenshot on error.");
+            } catch (e) {
+                console.error("Failed to take error screenshot:", e.message);
+            }
+        }
     } finally {
         await browser.close();
     }
