@@ -76,36 +76,19 @@ async function runAutomation() {
             const fbPassword = process.env.FB_PASSWORD;
 
             if (!fbEmail || !fbPassword) {
-                console.error("❌ FB_EMAIL or FB_PASSWORD not provided. Cannot auto-login.");
             } else {
-                console.log("Checking login screen type...");
-                const emailInput = await page.$('input[name="email"]').catch(() => null);
+                console.log("Clearing old cookies to force a clean login screen...");
+                const client = await page.target().createCDPSession();
+                await client.send('Network.clearBrowserCookies');
                 
-                if (!emailInput) {
-                    console.log("No email input found. Checking for 'Continue' button (Recent Logins)...");
-                    // Try to find and click a button containing "Continue" or the profile picture
-                    const buttons = await page.$$('div[role="button"], button, a[role="button"]');
-                    let clickedContinue = false;
-                    for (const btn of buttons) {
-                        const text = await page.evaluate(el => el.innerText, btn);
-                        if (text.match(/Continue/i)) {
-                            console.log("Found 'Continue' button. Clicking it...");
-                            await btn.click();
-                            clickedContinue = true;
-                            break;
-                        }
-                    }
-                    if (!clickedContinue) {
-                        console.log("Could not find 'Continue' button. Trying to click any profile block.");
-                        const profileBlock = await page.$('div[data-testid="royal_login_button"], div[role="button"]:not([aria-label])');
-                        if (profileBlock) await profileBlock.click();
-                    }
-                } else {
-                    console.log("Found standard login form. Entering credentials...");
-                    await page.type('input[name="email"]', fbEmail, { delay: 50 });
-                    await page.type('input[name="pass"]', fbPassword, { delay: 50 });
-                    await page.keyboard.press('Enter');
-                }
+                console.log("Navigating to standard login page...");
+                await page.goto('https://www.facebook.com/login', { waitUntil: 'networkidle2', timeout: 60000 });
+                
+                console.log("Entering credentials...");
+                await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+                await page.type('input[name="email"]', fbEmail, { delay: 50 });
+                await page.type('input[name="pass"]', fbPassword, { delay: 50 });
+                await page.keyboard.press('Enter');
                 
                 console.log("Waiting for login to complete...");
                 try {
